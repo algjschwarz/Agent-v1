@@ -2,6 +2,7 @@ from ollama import chat
 from ollama import ChatResponse
 from datetime import date
 from ddgs import DDGS
+import subprocess
 
 tools = [{
     'type': 'function',
@@ -16,7 +17,18 @@ tools = [{
             'required': ['query']
         }
     }
-}]
+    },{
+        'type': 'function',
+        'function': {
+            'name': 'execute_python',
+            'description': 'Execute Python code and return stdout and stderr',
+            'parameters': {
+                'type': 'object',
+                'properties': {'code': {'type': 'string'}},
+                'required': ['code']
+            }
+        }
+    }]
 
 messages = [
     {
@@ -47,10 +59,15 @@ def stream_response(stream) -> list:
     print(new_message['tool_calls'])
     return new_message
 
+def execute_python(code):
+    result = subprocess.run(["python", "-c", code], capture_output=True, text=True, timeout=30)
+    return f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+
 def search(query):
      results = DDGS().text(query, max_results=5)
      return "\n\n".join(f"{r['title']}\n{r['body']}" for r in results)
 
+TOOLS = {'search': search, 'execute_python': execute_python}
 def new_input(text) -> None:
     messages.append({'role': 'user', 'content': text})
 
@@ -68,7 +85,8 @@ def new_input(text) -> None:
             return
 
         for call in new_message['tool_calls']:
-            result = search(**call.function.arguments)
+            fn = TOOLS[call.function.name]
+            result = fn(**call.function.arguments)
             print(f"\n=== TOOL RESULT ===\n{result[:500]}\n")
             messages.append({
                 'role': 'tool',
@@ -76,5 +94,6 @@ def new_input(text) -> None:
                 'tool_name': call.function.name,
             })
 
-new_input('search who won the 2025 world series?')
+while True:
+    new_input(input("Input: "))
 
