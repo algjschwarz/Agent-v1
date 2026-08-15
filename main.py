@@ -1,8 +1,10 @@
 from ollama import chat
 from ollama import ChatResponse
-from datetime import date
+from datetime import datetime
 from ddgs import DDGS
 import subprocess
+from dataclasses import dataclass
+from time import sleep
 
 tools = [{
     'type': 'function',
@@ -28,14 +30,20 @@ tools = [{
                 'required': ['code']
             }
         }
-    }]
-
-messages = [
-    {
-        'role': 'system',
-        'content': f'You are a helpful assistant. Today is {date.today()}.'
+    },{
+        'type': 'function',
+        'function': {
+            'name': 'sleep',
+            'description': 'Sleep for x number of minutes or string y to await input',
+            'parameters': {
+                'type': 'object',
+                'properties': {'time': {'type': 'string'}},
+                'required': ['time']
+            }
+        }
     }
     ]
+
 
 def stream_response(stream) -> list:
     is_thinking = False
@@ -68,32 +76,64 @@ def search(query):
      return "\n\n".join(f"{r['title']}\n{r['body']}" for r in results)
 
 TOOLS = {'search': search, 'execute_python': execute_python}
-def new_input(text) -> None:
-    messages.append({'role': 'user', 'content': text})
+def new_input(text, agent) -> None:
+    agent.messages.append({'role': 'user', 'content': text})
 
     while True:
-        stream = chat(model='gemma4:e4b', messages=messages, think=True, stream=True, tools=tools)
+        stream = chat(model='gemma4:e4b', messages=agent.messages, think=agent.thinking, stream=True, tools=tools)
         new_message = stream_response(stream)
 
         msg = {'role': 'assistant', 'content': new_message['content'].strip()}
         if new_message['tool_calls']:
             msg['thinking'] = new_message['thinking']
             msg['tool_calls'] = new_message['tool_calls']
-        messages.append(msg)
+        agent.messages.append(msg)
 
         if not new_message['tool_calls']:
-            return
+            break
 
         for call in new_message['tool_calls']:
-            fn = TOOLS[call.function.name]
-            result = fn(**call.function.arguments)
-            print(f"\n=== TOOL RESULT ===\n{result[:500]}\n")
-            messages.append({
-                'role': 'tool',
-                'content': result,
-                'tool_name': call.function.name,
-            })
+            fn = TOOLS.get(call.function.name)
+            if fn is None:
+                result = f"error: unknown tool {call.function.name}"
+            else:
+                try:
+                    result = fn(**call.function.arguments)
+                except Exception as e:
+                    result = f"error: {type(e).__name__}: {e}"
 
-while True:
-    new_input(input("Input: "))
+            print(f"\n=== TOOL RESULT ===\n{result[:500]}\n")
+            agent.messages.append({'role': 'tool', 'content': result,
+                                'tool_name': call.function.name})
+
+class Agent():
+    def __init__(self, agent_role, role_name, thinking=False, ):
+        self.messages = [{'role': 'system', 'content': agent_role}]
+        self.thinking = thinking
+        self.tools = [tools[0], tools[2]]
+        self.role_name = role_name
+    def get_messages(self):
+        responses = f"{self.role_name} Input: "
+        for message in self.messages:
+            for role, content in message.values:
+                if role == "assistant":
+                    responses = responses + content
+        return responses
+    def reset_messages(self):
+        self.messages = self.messages[0]
+
+def main():
+    planner = Agent(f'You are a planner for an agent loop, you take in the user input come up with a reasonable plan to achieve the input and then your plan is handed to a creator agent to implement your plan a critic will then overview the process and report back to you', thinking=True, role_name="Planner")
+    critic = Agent(f'You are a critic for an agent loop, your primary goal is to analyze thought processes, outcomes, and structure to agents actions and provice critical insight for how to improve', thinking=True, role_name="Critic")
+    creator = Agent(f'You are a creator for an agent loop, your primary goal is to create and act out the planners plans as well as take into account the creators critiques to better solve issues', thinking=True, role_name="Creator")
+    
+    while True:
+        user_input = input("Enter Request: ")
+        new_input(user_input, planner)
+        for _ in range(10):
+            new_input(planner.get_messages() + critic.get_messages(), creator)
+            new_input(f"User Input: {user_input}" + creator.get_messages(), critic)
+
+if __name__ == "__main__":
+    main()
 
