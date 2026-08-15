@@ -30,17 +30,6 @@ tools = [{
                 'required': ['code']
             }
         }
-    },{
-        'type': 'function',
-        'function': {
-            'name': 'sleep',
-            'description': 'Sleep for x number of minutes or string y to await input',
-            'parameters': {
-                'type': 'object',
-                'properties': {'time': {'type': 'string'}},
-                'required': ['time']
-            }
-        }
     }
     ]
 
@@ -90,7 +79,7 @@ def new_input(text, agent) -> None:
         agent.messages.append(msg)
 
         if not new_message['tool_calls']:
-            break
+            return new_message['content']
 
         for call in new_message['tool_calls']:
             fn = TOOLS.get(call.function.name)
@@ -107,10 +96,10 @@ def new_input(text, agent) -> None:
                                 'tool_name': call.function.name})
 
 class Agent():
-    def __init__(self, agent_role, role_name, thinking=False, ):
+    def __init__(self, agent_role, role_name, thinking=False, tools=[]):
         self.messages = [{'role': 'system', 'content': agent_role}]
         self.thinking = thinking
-        self.tools = [tools[0], tools[2]]
+        self.tools = tools
         self.role_name = role_name
     def get_messages(self):
         responses = f"{self.role_name} Input: "
@@ -123,16 +112,18 @@ class Agent():
         self.messages = self.messages[0]
 
 def main():
-    planner = Agent(f'You are a planner for an agent loop, you take in the user input come up with a reasonable plan to achieve the input and then your plan is handed to a creator agent to implement your plan a critic will then overview the process and report back to you', thinking=True, role_name="Planner")
-    critic = Agent(f'You are a critic for an agent loop, your primary goal is to analyze thought processes, outcomes, and structure to agents actions and provice critical insight for how to improve', thinking=True, role_name="Critic")
-    creator = Agent(f'You are a creator for an agent loop, your primary goal is to create and act out the planners plans as well as take into account the creators critiques to better solve issues', thinking=True, role_name="Creator")
-    
+    critic_tools = tools[0]
+    creator_tools = tools[0:1]
+    critic = Agent(f'You are a critic for an agent loop, your primary goal is to analyze thought processes, outcomes, and structure to agents actions and provice critical insight for how to improve', thinking=True, role_name="Critic", tools=critic_tools)
+    creator = Agent(f'You are a creator for an agent loop, your primary goal is to create scripts and test them', thinking=True, role_name="Creator", tools=creator_tools)
+
+    user_input = input("Enter Request: ")
+    output = ""
     while True:
-        user_input = input("Enter Request: ")
-        new_input(user_input, planner)
-        for _ in range(10):
-            new_input(planner.get_messages() + critic.get_messages(), creator)
-            new_input(f"User Input: {user_input}" + creator.get_messages(), critic)
+        output = new_input(f"User Input: {user_input}, Critic Input: {output}", creator)
+        output = new_input(f"User Input: {user_input}, Creator Output: {output}", critic)
+
+        
 
 if __name__ == "__main__":
     main()
