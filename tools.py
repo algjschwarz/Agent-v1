@@ -28,9 +28,18 @@ tools = [{
     }
     ]
 
+proc = None
 def execute_python(code):
-    result = subprocess.run(["python", "-c", code], capture_output=True, text=True, timeout=30)
-    return f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    global proc
+    with open("running.py", "w") as f:
+        f.write(code)
+    proc = subprocess.Popen(
+        ["python", "-u", "running.py"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True
+    )
+    return "started"
 
 def search(query):
      results = DDGS().text(query, max_results=5)

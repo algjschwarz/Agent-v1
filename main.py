@@ -16,7 +16,7 @@ def main():
         thinking=True,
         tools=tools
     )
-    new_input("Write a program that prints the first 20 fibonacci numbers, then run it to check it works.", agent)
+    new_input("write a program that prints a number every second for 20 seconds, then run it.", agent)
 
 if __name__ == "__main__":
     main()
