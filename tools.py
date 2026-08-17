@@ -26,7 +26,7 @@ tools = [
         'type': 'function',
         'function': {
             'name': 'write_to_file',
-            'description': 'Write text to a file in the scripts folder. Overwrites if it already exists.',
+            'description': 'Write text to a file. Overwrites if it already exists.',
             'parameters': {
                 'type': 'object',
                 'properties': {
@@ -42,7 +42,7 @@ tools = [
         'type': 'function',
         'function': {
             'name': 'read_file',
-            'description': 'Read the contents of a file in the scripts folder',
+            'description': 'Read the contents of a file',
             'parameters': {
                 'type': 'object',
                 'properties': {
@@ -56,7 +56,7 @@ tools = [
         'type': 'function',
         'function': {
             'name': 'list_files',
-            'description': 'List all files in the scripts folder',
+            'description': 'List all files',
             'parameters': {
                 'type': 'object',
                 'properties': {}
@@ -67,7 +67,7 @@ tools = [
         'type': 'function',
         'function': {
             'name': 'execute_file',
-            'description': 'Run a Python file from the scripts folder in the background. Returns immediately without output. Use observe_program to see what it prints.',
+            'description': 'Run a Python file in the background. Returns immediately without output. Use observe_program to see what it prints.',
             'parameters': {
                 'type': 'object',
                 'properties': {
@@ -90,7 +90,22 @@ tools = [
                 'required': ['interval']
             }
         }
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'send_input',
+            'description': 'Send input through stdin to program',
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'text': {'type': 'string'}
+                },
+                'required': ['text']
+            }
+        }
     }
+
 ]
 
 proc = None
@@ -146,11 +161,17 @@ def execute_file(file_name):
         ["python", "-u", f"scripts/{file_name}"],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        stdin=subprocess.PIPE,
         text=True,
         env=env
     )
     threading.Thread(target=read_output, args=(proc,), daemon=True).start()
     return "started. The program is now running in the background. Call observe_program to see its output. Do not describe the program's behavior until you have observed it."
+
+def send_input(text):
+    proc.stdin.write(text + "\n")
+    proc.stdin.flush()
+    return f"sent: {text}"
 
 def observe_program(interval):
     sleep(interval)
@@ -167,4 +188,5 @@ def search(query):
 
 TOOLS = {'search': search, 'execute_file': execute_file,
          'observe_program': observe_program, 'read_file': read_file,
-         'write_to_file': write_to_file, 'list_files': list_files}
+         'write_to_file': write_to_file, 'list_files': list_files,
+         'send_input': send_input}

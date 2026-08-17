@@ -10,7 +10,7 @@ def main():
         thinking=True,
         tools=agent.tools
     )
-    agent.new_input("Make 3 programs for 2 of them have one be a game for the second one have it be a guessing game then make a third using the other 2 and importing them as modules", agent_v1)
+    agent.new_input("Create a game", agent_v1)
 
 if __name__ == "__main__":
     main()

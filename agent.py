@@ -52,8 +52,7 @@ def inject_recall(query, agent):
     if not hits:
         return
 
-    lines = ["Scripts already in the scripts/ folder. New scripts run from the same "
-             "directory, so you can import these directly."]
+    lines = ["Scripts already created that can be used and imported freely."]
     panel_lines = []
 
     for score, record in hits:
