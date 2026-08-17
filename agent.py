@@ -52,10 +52,22 @@ def inject_recall(query, agent):
     if not hits:
         return
 
-    lines = ["Scripts you have already written that may be relevant:"]
+    lines = ["Scripts already in the scripts/ folder. New scripts run from the same "
+             "directory, so you can import these directly."]
+    panel_lines = []
+
     for score, record in hits:
         lines.append(f"- {record['file_name']}: {record['docstring']}")
-    content = "\n".join(lines)
+        panel_lines.append(f"[bold]{score:.3f}[/bold]  {record['file_name']}")
+        panel_lines.append(f"         [dim]{record['docstring']}[/dim]")
+
+        for fn in record['functions']:
+            sig = f"{fn['name']}({', '.join(fn['args'])}) -> {fn['returns']}"
+            lines.append(f"    {sig} — {fn['doc']}")
+            panel_lines.append(f"         [cyan]{sig}[/cyan] [dim]{fn['doc']}[/dim]")
+
+    console.print(rich.panel.Panel("\n".join(panel_lines),
+                                   title="recall", border_style="magenta"))
 
     agent.messages.append({
         'role': 'assistant',
@@ -66,7 +78,7 @@ def inject_recall(query, agent):
     agent.messages.append({
         'role': 'tool',
         'tool_name': 'recall_scripts',
-        'content': content
+        'content': "\n".join(lines)
     })
 
 def new_input(text, agent) -> None:

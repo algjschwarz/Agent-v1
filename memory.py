@@ -19,13 +19,29 @@ def search(query, store, k=3) -> list:
     scored.sort(key=lambda x: x[0], reverse=True)
     return scored[:k]
 
+def extract_functions(tree) -> list:
+    """Return name, args, and docstring for each top-level function in tree."""
+    functions = []
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef):
+            args = [ast.unparse(a) for a in node.args.args]
+            returns = ast.unparse(node.returns)
+            functions.append({
+                'name': node.name,
+                'args': args,
+                'returns': returns,
+                'doc': ast.get_docstring(node)
+            })
+    return functions
+
 def index_all() -> str:
     script_embeddings.clear()
     for path in glob.glob('scripts/*.py'):
         with open(path, encoding="utf-8") as f:
             text = f.read()
         try:
-            docstring = ast.get_docstring(ast.parse(text))
+            tree = ast.parse(text)
+            docstring = ast.get_docstring(tree)
         except SyntaxError:
             docstring = None
         if docstring is None:
@@ -34,7 +50,8 @@ def index_all() -> str:
         script_embeddings.append({
             'file_name': os.path.basename(path),
             'docstring': docstring,
-            'embedding': embed(docstring)
+            'embedding': embed(docstring),
+            'functions': extract_functions(tree)
         })
     return f"indexed {len(script_embeddings)} scripts"
 

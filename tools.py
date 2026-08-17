@@ -125,8 +125,15 @@ def write_to_file(file_name, description, text):
         if docstring is None:
             return "REJECTED, file not written. Could not extract a docstring."
 
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef):
+                if ast.get_docstring(node) is None:
+                    return f"REJECTED, file not written. Function {node.name} has no docstring."
+                if node.returns is None:
+                    return f"REJECTED, file not written. Function {node.name} has no return type specified, add a return type to {node.name} and call write_to_file again."
+                    
         embedding = memory.embed(docstring)
-        memory.script_embeddings.append({'file_name': file_name, 'embedding': embedding, 'docstring': docstring})
+        memory.script_embeddings.append({'file_name': file_name, 'embedding': embedding, 'docstring': docstring, 'functions': memory.extract_functions(tree)})
 
     with open(f"scripts/{file_name}", "w", encoding="utf-8") as f:
         f.write(text)
