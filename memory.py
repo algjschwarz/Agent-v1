@@ -12,6 +12,13 @@ def embed(text) -> np.ndarray:
 def similarity(a, b) -> float:
     return a @ b / (np.linalg.norm(a) * np.linalg.norm(b))
 
+def search(query, store, k=3) -> list:
+    '''Searches store for k most similar to query.'''
+    q = embed(query)
+    scored = [(similarity(q, r['embedding']), r) for r in store]
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return scored[:k]
+
 def index_all() -> str:
     script_embeddings.clear()
     for path in glob.glob('scripts/*.py'):
@@ -30,3 +37,7 @@ def index_all() -> str:
             'embedding': embed(docstring)
         })
     return f"indexed {len(script_embeddings)} scripts"
+
+if __name__ == "__main__":
+    index_all()
+    print(search(input("Enter Input: "), script_embeddings))

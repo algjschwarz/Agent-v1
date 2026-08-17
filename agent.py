@@ -5,6 +5,7 @@ from tools import tools, TOOLS
 import rich.rule
 import rich.panel
 from rich.console import Console
+import memory
 
 console = Console()
 
@@ -46,8 +47,31 @@ def run_tool_calls(agent, tool_calls):
         agent.messages.append({'role': 'tool', 'content': result,
                             'tool_name': call.function.name})
 
+def inject_recall(query, agent):
+    hits = memory.search(query, memory.script_embeddings)
+    if not hits:
+        return
+
+    lines = ["Scripts you have already written that may be relevant:"]
+    for score, record in hits:
+        lines.append(f"- {record['file_name']}: {record['docstring']}")
+    content = "\n".join(lines)
+
+    agent.messages.append({
+        'role': 'assistant',
+        'content': '',
+        'tool_calls': [{'function': {'name': 'recall_scripts',
+                                     'arguments': {'query': query}}}]
+    })
+    agent.messages.append({
+        'role': 'tool',
+        'tool_name': 'recall_scripts',
+        'content': content
+    })
+
 def new_input(text, agent) -> None:
     agent.messages.append({'role': 'user', 'content': text})
+    inject_recall(text, agent)
 
     while True:
         stream = ollama.chat(model='gemma4:e4b', messages=agent.messages, think=agent.thinking, stream=True, tools=agent.tools)

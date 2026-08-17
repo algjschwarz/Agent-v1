@@ -126,7 +126,7 @@ def write_to_file(file_name, description, text):
             return "REJECTED, file not written. Could not extract a docstring."
 
         embedding = memory.embed(docstring)
-        memory.script_embeddings.append({'file_name': file_name, 'embedding': embedding})
+        memory.script_embeddings.append({'file_name': file_name, 'embedding': embedding, 'docstring': docstring})
 
     with open(f"scripts/{file_name}", "w", encoding="utf-8") as f:
         f.write(text)
