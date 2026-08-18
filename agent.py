@@ -1,36 +1,7 @@
 import ollama
-from dataclasses import dataclass
-from time import sleep
 from tools import tools, TOOLS
-import rich.rule
-import rich.panel
-from rich.console import Console
 import memory
-
-console = Console()
-
-def stream_response(stream) -> list:
-    is_thinking = False
-    new_message = {'thinking':'', 'content':'', 'tool_calls':[]}
-    for chunk in stream:
-        if chunk.message.thinking:
-            if not is_thinking:
-                console.print(rich.rule.Rule("[dim]thinking[/dim]", style="dim"))
-                is_thinking = True
-            new_message['thinking'] = new_message['thinking'] + chunk.message.thinking
-            console.print(chunk.message.thinking, end='', style="dim", highlight=False, soft_wrap=True)
-        if chunk.message.content:
-            if is_thinking:
-                console.print(rich.rule.Rule("[bold]answer[/bold]"))
-                is_thinking = False
-            new_message['content'] = new_message['content'] + chunk.message.content
-            console.print(chunk.message.content, end='', highlight=False, soft_wrap=True)
-        if chunk.message.tool_calls:
-            new_message['tool_calls'].extend(chunk.message.tool_calls)
-    if new_message['tool_calls']:
-        console.print(rich.rule.Rule("[cyan]tool calls[/cyan]", style="cyan"))
-        console.print(new_message['tool_calls'])
-    return new_message
+from display import stream_response, call_args, print_tool_result, print_recall
 
 def run_tool_calls(agent, tool_calls):
     for call in tool_calls:
@@ -41,32 +12,24 @@ def run_tool_calls(agent, tool_calls):
             try:
                 result = fn(**call.function.arguments)
             except Exception as e:
-                 result = f"error: {type(e).__name__}: {e}"
-    
-        console.print(rich.panel.Panel(result[:500], title=call.function.name, border_style="green"))
+                result = f"error: {type(e).__name__}: {e}"
+        print_tool_result(call.function.name, result)
         agent.messages.append({'role': 'tool', 'content': result,
-                            'tool_name': call.function.name})
+                               'tool_name': call.function.name})
 
 def inject_recall(query, agent):
     hits = memory.search(query, memory.script_embeddings)
     if not hits:
         return
-
+    
     lines = ["Scripts already created that can be used and imported freely."]
-    panel_lines = []
-
+    print_recall(hits)
+    
     for score, record in hits:
         lines.append(f"- {record['file_name']}: {record['docstring']}")
-        panel_lines.append(f"[bold]{score:.3f}[/bold]  {record['file_name']}")
-        panel_lines.append(f"         [dim]{record['docstring']}[/dim]")
-
         for fn in record['functions']:
             sig = f"{fn['name']}({', '.join(fn['args'])}) -> {fn['returns']}"
             lines.append(f"    {sig} — {fn['doc']}")
-            panel_lines.append(f"         [cyan]{sig}[/cyan] [dim]{fn['doc']}[/dim]")
-
-    console.print(rich.panel.Panel("\n".join(panel_lines),
-                                   title="recall", border_style="magenta"))
 
     agent.messages.append({
         'role': 'assistant',
@@ -80,12 +43,27 @@ def inject_recall(query, agent):
         'content': "\n".join(lines)
     })
 
+MAX_STORED = 400
+def compact_messages(agent):
+    for msg in agent.messages[:-4]:
+        for call in msg.get('tool_calls', []):
+            args = call_args(call)
+            for key, val in args.items():
+                if isinstance(val, str) and len(val) > MAX_STORED:
+                    args[key] = f"<{len(val)} chars, omitted>"
+        if msg.get('role') == 'tool' and len(msg['content']) > MAX_STORED:
+            msg['content'] = msg['content'][:MAX_STORED] + " <truncated>"
+
+
 def new_input(text, agent) -> None:
     agent.messages.append({'role': 'user', 'content': text})
     inject_recall(text, agent)
 
     while True:
-        stream = ollama.chat(model='gemma4:e4b', messages=agent.messages, think=agent.thinking, stream=True, tools=agent.tools)
+        compact_messages(agent)
+
+        stream = ollama.chat(model='gemma4:e4b', messages=agent.messages,
+                             think=agent.thinking, stream=True, tools=agent.tools)
         new_message = stream_response(stream)
 
         msg = {'role': 'assistant', 'content': new_message['content'].strip()}
@@ -98,7 +76,6 @@ def new_input(text, agent) -> None:
             return new_message['content']
 
         run_tool_calls(agent, new_message['tool_calls'])
-        
 
 class Agent():
     def __init__(self, agent_role, role_name, thinking=False, tools=[]):

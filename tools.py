@@ -163,13 +163,14 @@ def execute_file(file_name):
         stderr=subprocess.STDOUT,
         stdin=subprocess.PIPE,
         text=True,
-        env=env
+        env=env,
+        encoding="utf-8"
     )
     threading.Thread(target=read_output, args=(proc,), daemon=True).start()
     return "started. The program is now running in the background. Call observe_program to see its output. Do not describe the program's behavior until you have observed it."
 
 def send_input(text):
-    proc.stdin.write(text + "\n")
+    proc.stdin.write(text.rstrip('\n') + "\n")
     proc.stdin.flush()
     return f"sent: {text}"
 

@@ -10,7 +10,7 @@ def main():
         thinking=True,
         tools=agent.tools
     )
-    agent.new_input("Create a game", agent_v1)
+    agent.new_input("Test the entire game and beat it", agent_v1)
 
 if __name__ == "__main__":
     main()
