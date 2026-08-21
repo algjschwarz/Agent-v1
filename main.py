@@ -10,7 +10,7 @@ def main():
         thinking=True,
         tools=agent.tools
     )
-    agent.new_input("Make a simple console strategy game that is extensible", agent_v1)
+    agent.new_input("Make a simple calculator", agent_v1)
 
 if __name__ == "__main__":
     main()

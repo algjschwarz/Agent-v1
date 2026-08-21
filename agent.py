@@ -17,25 +17,21 @@ def run_tool_calls(agent, tool_calls):
         agent.messages.append({'role': 'tool', 'content': result,
                                'tool_name': call.function.name})
 
-def inject_recall(query, agent):
-    hits = memory.search(query, memory.script_embeddings)
-    if not hits:
-        return
-    
+def inject_recall(query, agent, hits) -> None:
     lines = ["Scripts already created that can be used and imported freely."]
-    print_recall(hits)
     
-    for score, record in hits:
+    for score, record, _ in hits:
         lines.append(f"- {record['file_name']}: {record['docstring']}")
         for fn in record['functions']:
             sig = f"{fn['name']}({', '.join(fn['args'])}) -> {fn['returns']}"
             lines.append(f"    {sig} — {fn['doc']}")
 
+    
     agent.messages.append({
         'role': 'assistant',
         'content': '',
         'tool_calls': [{'function': {'name': 'recall_scripts',
-                                     'arguments': {'query': query}}}]
+                                        'arguments': {'query': query}}}]
     })
     agent.messages.append({
         'role': 'tool',
@@ -58,6 +54,7 @@ def compact_messages(agent):
 def new_input(text, agent) -> None:
     agent.messages.append({'role': 'user', 'content': text})
     stop_after_thinking = True
+    scripts_embeddings = memory.script_embeddings.copy()
 
     while True:
         compact_messages(agent)
@@ -65,8 +62,21 @@ def new_input(text, agent) -> None:
         stream = ollama.chat(model='gemma4:e4b', messages=agent.messages,
                              think=agent.thinking, stream=True, tools=agent.tools)
         new_message = stream_response(stream, stop_after_thinking)
-        if stop_after_thinking:
-            inject_recall(new_message['thinking'], agent)
+        if stop_after_thinking and len(scripts_embeddings) > 0:
+            script_hits = []
+            for s in new_message["thinking"].split("."):
+                if len(s.strip()) > 10:
+                    script_hits.extend(memory.search(s, scripts_embeddings, k=3))
+            script_hits.sort(key=lambda x: x[0], reverse=True)
+            script_hits = script_hits[:4]
+            for score, record, query in script_hits:
+                if record in scripts_embeddings:
+                    scripts_embeddings.remove(record)
+            print_recall(script_hits)
+            inject_recall(script_hits[0][2], agent, script_hits)
+            stop_after_thinking = False
+            continue
+        elif stop_after_thinking and len(scripts_embeddings) <= 0:
             stop_after_thinking = False
             continue
 

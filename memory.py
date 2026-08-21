@@ -15,7 +15,7 @@ def similarity(a, b) -> float:
 def search(query, store, k=3) -> list:
     '''Searches store for k most similar to query.'''
     q = embed(query)
-    scored = [(similarity(q, r['embedding']), r) for r in store]
+    scored = [(similarity(q, r['embedding']), r, query) for r in store]
     scored.sort(key=lambda x: x[0], reverse=True)
     return scored[:k]
 

@@ -10,7 +10,8 @@ def print_tool_result(name, result):
 
 def print_recall(hits):
     lines = []
-    for score, record in hits:
+    for score, record, query in hits:
+        lines.append(f"[bold]Query: {query}[/bold]  ")
         lines.append(f"[bold]{score:.3f}[/bold]  {record['file_name']}")
         lines.append(f"         [dim]{record['docstring']}[/dim]")
         for fn in record['functions']:
