@@ -65,17 +65,20 @@ def render_messages(agent):
                                         border_style="green"))
     return out
 
-def stream_response(stream) -> dict:
+def stream_response(stream, stop_after_thinking: bool) -> dict:
+    '''Streams response to console'''
     is_thinking = False
     new_message = {'thinking': '', 'content': '', 'tool_calls': []}
     for chunk in stream:
-        if chunk.message.thinking:
+        if chunk.message.thinking: 
             if not is_thinking:
                 console.print(rich.rule.Rule("[dim]thinking[/dim]", style="dim"))
                 is_thinking = True
             new_message['thinking'] += chunk.message.thinking
             console.print(chunk.message.thinking, end='', style="dim",
-                          highlight=False, soft_wrap=True)
+                        highlight=False, soft_wrap=True)
+        elif stop_after_thinking:
+            return new_message
         if chunk.message.content:
             if is_thinking:
                 console.print(rich.rule.Rule("[bold]answer[/bold]"))

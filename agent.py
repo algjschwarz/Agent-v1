@@ -57,14 +57,18 @@ def compact_messages(agent):
 
 def new_input(text, agent) -> None:
     agent.messages.append({'role': 'user', 'content': text})
-    inject_recall(text, agent)
+    stop_after_thinking = True
 
     while True:
         compact_messages(agent)
 
         stream = ollama.chat(model='gemma4:e4b', messages=agent.messages,
                              think=agent.thinking, stream=True, tools=agent.tools)
-        new_message = stream_response(stream)
+        new_message = stream_response(stream, stop_after_thinking)
+        if stop_after_thinking:
+            inject_recall(new_message['thinking'], agent)
+            stop_after_thinking = False
+            continue
 
         msg = {'role': 'assistant', 'content': new_message['content'].strip()}
         if new_message['tool_calls']:
@@ -76,6 +80,7 @@ def new_input(text, agent) -> None:
             return new_message['content']
 
         run_tool_calls(agent, new_message['tool_calls'])
+        stop_after_thinking = True
 
 class Agent():
     def __init__(self, agent_role, role_name, thinking=False, tools=[]):
