@@ -1,193 +1,113 @@
-"""A simple, modular, turn-based console strategy game demonstrating resource conflict and territory control."""
+"""The main game engine. It uses the ResourcePool from resources.py to manage a turn-based strategy game."""
 
-import random
+from resources import ResourcePool, gather_resources
 import time
 
-# =====================================================================
-# CORE GAME COMPONENTS
-# =====================================================================
-
-class Player:
-    """Represents a participant in the game."""
-    def __init__(self, name: str):
+class Civilization:
+    """Represents a player's civilization."""
+    def __init__(self, name: str, starting_resources: ResourcePool):
         self.name = name
-        self.resources = 10
-        self.units = 2
-        self.controlled_territories = set()
+        self.resources = starting_resources
+        self.population = 10
+        self.military_strength = 5
+        self.is_defeated = False
 
-    def display_status(self) -> str:
-        """Returns a formatted string of the player's current status."""
-        return (f"\n--- {self.name}'s Status ---\n"
-                f"Resources: {self.resources}\n"
-                f"Units: {self.units}\n"
-                f"Controlled Territories: {len(self.controlled_territories)}\n")
+    def display_status(self) -> None:
+        """Prints the current status of the civilization."""
+        print("\n" + "="*40)
+        print(f"    Civilization Status: {self.name.upper()}")
+        print("="*40)
+        print(f"Population: {self.population}")
+        print(f"Military Strength: {self.military_strength}")
+        self.resources.display()
+        print("="*40)
 
-    def gain_resources(self, amount: int):
-        """Increases the player's resources."""
-        self.resources += amount
-        print(f"✅ {self.name} gained {amount} resources.")
-
-    def spend_resources(self, amount: int) -> bool:
-        """Decreases the player's resources if enough are available."""
-        if self.resources >= amount:
-            self.resources -= amount
-            print(f"➖ {self.name} spent {amount} resources.")
+    def develop(self) -> bool:
+        """Action: Develop technology/infrastructure, costing resources."""
+        COST_FOOD = 10
+        COST_WOOD = 5
+        COST_GOLD = 15
+        
+        if self.resources.spend(COST_FOOD, COST_WOOD, COST_GOLD):
+            self.population += 2
+            self.military_strength += 3
+            print(f"[{self.name}] SUCCESSFULLY developed new infrastructure! Pop increased, Military boosted.")
             return True
         else:
-            print(f"❌ {self.name} failed action: Insufficient resources (Needed: {amount}, Have: {self.resources}).")
+            print(f"[{self.name}] Cannot develop: Insufficient resources.")
             return False
 
-class Territory:
-    """Represents a location on the map."""
-    def __init__(self, name: str, is_resource_rich: bool = False):
-        self.name = name
-        self.is_resource_rich = is_resource_rich
-        self.owner: str | None = None
-        self.defenses = 1 if is_resource_rich else 0
-
-    def __str__(self) -> str:
-        """String representation for display."""
-        owner_status = f" (Owner: {self.owner})" if self.owner else ""
-        resource_status = " [💰 RICH]" if self.is_resource_rich else ""
-        return f"'{self.name}'{resource_status}{owner_status}"
-
-class Game:
-    """Manages the game state, players, and turn sequence."""
-    def __init__(self, player_names: list[str]):
-        self.players = [Player(name) for name in player_names]
-        self.territories: list[Territory] = self._setup_map()
-        self.current_turn = 1
-
-    def _setup_map(self) -> list[Territory]:
-        """Initializes the map of territories."""
-        # Creating a set of predefined territories
-        return [
-            Territory("Capital City", is_resource_rich=True),
-            Territory("Whispering Woods", is_resource_rich=False),
-            Territory("Iron Mines", is_resource_rich=True),
-            Territory("River Crossing", is_resource_rich=False)
-        ]
-
-    def display_game_state(self) -> None:
-        """Prints the current state of the map and player status."""
-        print("\n" + "="*60)
-        print(f"*** GAME STATE - TURN {self.current_turn} ***")
-        print("="*60)
+    def attack(self, target: 'Civilization') -> bool:
+        """Action: Attack another civilization."""
+        print(f"\n[{self.name}] is preparing to engage {target.name}...")
         
-        # 1. Territory Display
-        print("\n[🗺️ MAP STATUS]")
-        for t in self.territories:
-            print(f"  - {t}")
+        # Combat logic: Uses a combination of military strength and population scaling.
+        attack_modifier = 1 + (self.population // 10)
+        combat_strength = self.military_strength * attack_modifier
         
-        # 2. Player Status Display
-        print("\n[👤 PLAYER STATUS]")
-        for player in self.players:
-            print(player.display_status())
+        target_defense = target.military_strength * 0.8 + (target.population // 10)
+        
+        print(f"  -> {self.name} Combat Power: {combat_strength:.0f}")
+        print(f"  -> {target.name} Defense: {target_defense:.0f}")
 
-    def run_turn(self) -> None:
-        """Executes one full turn of the game, allowing player actions."""
-        print("\n" + "#"*20 + "\n✨ STARTING TURN ACTIONS ✨")
-        
-        # Loop through each player to allow actions
-        for player in self.players:
-            print(f"\n\n>>> {player.name}'s Turn:")
-            
-            # Action 1: Claim/Expand Territory
-            self.expand_territory(player)
-            
-            # Action 2: Attack (Basic Conflict Simulation)
-            self.attack_random_target(player)
-        
-        self.current_turn += 1
-        time.sleep(1)
-
-    def expand_territory(self, player: Player):
-        """Allows a player to claim a new territory."""
-        available_territories = [t for t in self.territories if t.owner is None]
-        if not available_territories:
-            print(f"    -> {player.name}: All territories are currently claimed.")
-            return
-
-        print("    -> {player.name}: Territory Expansion.")
-        
-        # Simulate resource cost and selection
-        if player.spend_resources(5):
-            # Simple random claim for demonstration
-            target = random.choice(available_territories)
-            target.owner = player.name
-            player.controlled_territories.add(target.name)
-            print(f"    -> SUCCESS: {player.name} has claimed the {target.name}!")
+        if combat_strength > target_defense * 1.2:
+            # Victory
+            print(f"*** VICTORY! {target.name} is defeated! ***")
+            target.is_defeated = True
+            self.resources.gain(10, 10, 30) # Loot
+            self.military_strength += 5
+            return True
+        elif combat_strength < target_defense * 0.8:
+            # Defeat
+            print(f"!!! DEFEAT! {self.name} was repelled by {target.name}. Lost morale/soldiers. !!!")
+            self.military_strength = max(1, self.military_strength - 4)
+            return False
         else:
-            print(f"    -> FAILURE: {player.name} could not afford expansion.")
+            # Stalemate/Damage
+            print("--- SKIRMISH! Both sides suffer damage. ---")
+            self.military_strength = max(1, self.military_strength - 2)
+            target.military_strength = max(1, target.military_strength - 2)
+            return True
 
-    def attack_random_target(self, attacker: Player):
-        """Simulates a random attack on a non-allied, owned territory."""
-        
-        # Targets are territories owned by others and not already owned by the attacker
-        potential_targets = [
-            t for t in self.territories 
-            if t.owner is not None and t.owner != attacker.name
-        ]
 
-        if not potential_targets:
-            print("    -> {attacker.name}: No enemy territories found to attack.")
-            return
+def main_game_loop() -> None:
+    """
+    Initializes and runs the turn-based strategy game. 
+    The game progresses until one civilization is defeated.
+    """
+    print("***************************************************")
+    print("*       ADVANCED TURN-BASED STRATEGY SIM        *")
+    print("***************************************************")
 
-        target = random.choice(potential_targets)
-        print(f"    -> {attacker.name}: Military Action (Attacking {target.name}).")
-
-        # Combat Logic (Simplified)
-        attacker_units = attacker.units
-        defender_defenses = target.defenses
-        
-        print(f"    -> Combat initiated! Attacker Units: {attacker_units}, Defender Defenses: {defender_defenses}.")
-        time.sleep(0.5)
-
-        if attacker_units > defender_defenses * 1.5:
-            print(f"    -> VICTORY! {attacker.name} successfully conquered {target.name}!")
-            
-            # Transfer ownership
-            old_owner = target.owner
-            target.owner = attacker.name
-            attacker.controlled_territories.add(target.name)
-            if old_owner:
-                 # Simple punishment for old owner (lose some units/resources)
-                 old_player = next((p for p in self.players if p.name == old_owner), None)
-                 if old_player:
-                     old_player.units = max(1, old_player.units - 1)
-                     old_player.resources = max(0, old_player.resources - 3)
-                     print(f"    -> CONQUERED: {old_owner} was hit hard! Lost 1 unit and 3 resources.")
-            
-            attacker.gain_resources(5) # Reward
-        else:
-            print(f"    -> DEFEAT: {attacker.name}'s attack failed at {target.name}. Retreat!")
-            attacker.units = max(1, attacker.units - 1) # Penalty for failure
-
-# =====================================================================
-# MAIN EXECUTION
-# =====================================================================
-
-if __name__ == "__main__":
-    # Initialize the game with player names
-    player_names = ["PlayerA", "PlayerB", "PlayerC"]
-    game = Game(player_names)
-
-    print("************************************************************")
-    print("✨ WELCOME TO THE RESOURCE CONFLICT STRATEGY GAME ✨")
-    print("************************************************************")
-    time.sleep(1)
+    # Setup Resources
+    initial_res = ResourcePool(food=100, wood=80, gold=50)
     
-    # Display initial state
-    game.display_game_state()
+    # Setup Civilizations
+    civ_A = Civilization("Aethelgard", initial_res.copy())
+    civ_B = Civilization("Borealis", initial_res.copy())
+    
+    # Give a slight advantage to one player for testing:
+    civ_B.resources.gain(50, 50, 50)
+    civ_B.military_strength += 2
 
-    # Run a few turns to demonstrate functionality
-    try:
-        print("\n\n[Running 3 Demonstration Turns. Press Ctrl+C to stop early.]")
-        for _ in range(3):
-            game.run_turn()
-    except KeyboardInterrupt:
-        print("\n\nGame interrupted by user. Exiting.")
-    finally:
-        game.display_game_state()
-        print("\n*** GAME ENDED ***")
+    current_turn = 1
+    
+    while not (civ_A.is_defeated or civ_B.is_defeated):
+        print("\n" + "#"*60)
+        print(f"== TURNING ON: TURN {current_turn} ==")
+        print("#"*60)
+        
+        # --- Resource Gathering Phase ---
+        print("\n--- 1. RESOURCE GATHERING PHASE ---")
+        gather_resources(civ_A)
+        gather_resources(civ_B)
 
+        # --- Action Phase ---
+        print("\n--- 2. ACTION PHASE (CIV A) ---")
+        # Example Turn Action for Civ A: Attempt to develop, then attack B
+        civ_A.display_status()
+        civ_A.develop()
+        civ_A.attack(civ_B)
+
+        print("\n--- 3. ACTION PHASE (CIV B) ---")
+        # Example Turn Action for Civ B

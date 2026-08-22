@@ -41,7 +41,7 @@ def inject_recall(query, agent, hits) -> None:
 
 MAX_STORED = 400
 def compact_messages(agent):
-    for msg in agent.messages[:-4]:
+    for msg in agent.messages[:-2]:
         for call in msg.get('tool_calls', []):
             args = call_args(call)
             for key, val in args.items():
@@ -50,6 +50,24 @@ def compact_messages(agent):
         if msg.get('role') == 'tool' and len(msg['content']) > MAX_STORED:
             msg['content'] = msg['content'][:MAX_STORED] + " <truncated>"
 
+def search_script_memory(message: str, scripts_embeddings: list) -> list:
+    script_hits = []
+    for s in message["thinking"].split("."):
+        if len(s.strip()) > 10:
+            results = memory.search(s, scripts_embeddings, k=3)
+            script_hits.extend(results)
+        script_hits.sort(key=lambda x: x[0], reverse=True)
+        seen = set()
+        unique = []
+        for hit in script_hits:
+            if hit[1]['file_name'] not in seen:
+                seen.add(hit[1]['file_name'])
+                unique.append(hit)
+        script_hits = unique[:4]
+        for score, record, query in script_hits:
+            if record in scripts_embeddings:
+                scripts_embeddings.remove(record)
+    return script_hits
 
 def new_input(text, agent) -> None:
     agent.messages.append({'role': 'user', 'content': text})
@@ -63,15 +81,7 @@ def new_input(text, agent) -> None:
                              think=agent.thinking, stream=True, tools=agent.tools)
         new_message = stream_response(stream, stop_after_thinking)
         if stop_after_thinking and len(scripts_embeddings) > 0:
-            script_hits = []
-            for s in new_message["thinking"].split("."):
-                if len(s.strip()) > 10:
-                    script_hits.extend(memory.search(s, scripts_embeddings, k=3))
-            script_hits.sort(key=lambda x: x[0], reverse=True)
-            script_hits = script_hits[:4]
-            for score, record, query in script_hits:
-                if record in scripts_embeddings:
-                    scripts_embeddings.remove(record)
+            script_hits = search_script_memory(new_message, scripts_embeddings)
             print_recall(script_hits)
             inject_recall(script_hits[0][2], agent, script_hits)
             stop_after_thinking = False
