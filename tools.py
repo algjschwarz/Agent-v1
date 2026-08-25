@@ -105,7 +105,6 @@ tools = [
             }
         }
     }
-
 ]
 
 proc = None
@@ -191,3 +190,5 @@ TOOLS = {'search': search, 'execute_file': execute_file,
          'observe_program': observe_program, 'read_file': read_file,
          'write_to_file': write_to_file, 'list_files': list_files,
          'send_input': send_input}
+
+

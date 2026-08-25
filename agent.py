@@ -3,6 +3,9 @@ from tools import tools, TOOLS
 import memory
 from display import stream_response, call_args, print_tool_result, print_recall
 
+creator_tools = tools[:7]
+#grader_tools = tools[8]
+
 def run_tool_calls(agent, tool_calls):
     for call in tool_calls:
         fn = TOOLS.get(call.function.name)
@@ -25,7 +28,6 @@ def inject_recall(query, agent, hits) -> None:
         for fn in record['functions']:
             sig = f"{fn['name']}({', '.join(fn['args'])}) -> {fn['returns']}"
             lines.append(f"    {sig} — {fn['doc']}")
-
     
     agent.messages.append({
         'role': 'assistant',
@@ -69,7 +71,7 @@ def search_script_memory(message: dict, scripts_embeddings: list) -> list:
             scripts_embeddings.remove(record)
     return script_hits
 
-def new_input(text, agent) -> None:
+def new_input(text, agent, recall_enabled) -> None:
     agent.messages.append({'role': 'user', 'content': text})
     stop_after_thinking = True
     scripts_embeddings = memory.script_embeddings.copy()
@@ -80,20 +82,22 @@ def new_input(text, agent) -> None:
         stream = ollama.chat(model='gemma4:e4b', messages=agent.messages,
                              think=agent.thinking, stream=True, tools=agent.tools)
         new_message = stream_response(stream, stop_after_thinking)
-        if stop_after_thinking and len(scripts_embeddings) > 0:
-            script_hits = search_script_memory(new_message, scripts_embeddings)
-            print_recall(script_hits)
-            inject_recall(script_hits[0][2], agent, script_hits)
-            stop_after_thinking = False
-            continue
-        elif stop_after_thinking and len(scripts_embeddings) <= 0:
-            stop_after_thinking = False
-            continue
+        if recall_enabled:
+            if stop_after_thinking and len(scripts_embeddings) > 0:
+                script_hits = search_script_memory(new_message, scripts_embeddings)
+                print_recall(script_hits)
+                inject_recall(script_hits[0][2], agent, script_hits)
+                stop_after_thinking = False
+                continue
+            elif stop_after_thinking and len(scripts_embeddings) <= 0:
+                stop_after_thinking = False
+                continue
 
         msg = {'role': 'assistant', 'content': new_message['content'].strip()}
         if new_message['tool_calls']:
             msg['thinking'] = new_message['thinking']
             msg['tool_calls'] = new_message['tool_calls']
+            agent.tool_calls.append(new_message['tool_calls'])
         agent.messages.append(msg)
 
         if not new_message['tool_calls']:
@@ -105,6 +109,7 @@ def new_input(text, agent) -> None:
 class Agent():
     def __init__(self, agent_role, role_name, thinking=False, tools=[]):
         self.messages = [{'role': 'system', 'content': agent_role}]
+        self.tool_calls = []
         self.thinking = thinking
         self.tools = tools
         self.role_name = role_name
