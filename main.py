@@ -16,8 +16,7 @@ def main():
         thinking=True,
         tools=None#agent.grader_tools
     )
-    agent.new_input("Make a strategy game across 2 files, make sure to test the full game", creator, True)
-    agent.new_input("Make a strategy game across 2 files, make sure to test the full game", grader, False)
+    creator.new_input("Make a strategy game across 2 files, make sure to test the full game", True)
 
 
 if __name__ == "__main__":
