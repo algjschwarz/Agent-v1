@@ -50,23 +50,23 @@ def compact_messages(agent):
         if msg.get('role') == 'tool' and len(msg['content']) > MAX_STORED:
             msg['content'] = msg['content'][:MAX_STORED] + " <truncated>"
 
-def search_script_memory(message: str, scripts_embeddings: list) -> list:
+def search_script_memory(message: dict, scripts_embeddings: list) -> list:
     script_hits = []
     for s in message["thinking"].split("."):
         if len(s.strip()) > 10:
             results = memory.search(s, scripts_embeddings, k=3)
             script_hits.extend(results)
-        script_hits.sort(key=lambda x: x[0], reverse=True)
-        seen = set()
-        unique = []
-        for hit in script_hits:
-            if hit[1]['file_name'] not in seen:
-                seen.add(hit[1]['file_name'])
-                unique.append(hit)
-        script_hits = unique[:4]
-        for score, record, query in script_hits:
-            if record in scripts_embeddings:
-                scripts_embeddings.remove(record)
+    script_hits.sort(key=lambda x: x[0], reverse=True)
+    seen = set()
+    unique = []
+    for hit in script_hits:
+        if hit[1]['file_name'] not in seen:
+            seen.add(hit[1]['file_name'])
+            unique.append(hit)
+    script_hits = unique[:4]
+    for score, record, query in script_hits:
+        if record in scripts_embeddings:
+            scripts_embeddings.remove(record)
     return script_hits
 
 def new_input(text, agent) -> None:
