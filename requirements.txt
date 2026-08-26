@@ -2,3 +2,5 @@ ollama
 ddgs
 rich
 numpy
+ollama
+ddgs
