@@ -114,3 +114,7 @@ class Agent():
             display.print_tool_result(call.function.name, result)
             self.messages.append({'role': 'tool', 'content': result,
                                 'tool_name': call.function.name})
+
+class Grader(Agent):
+    def __init__(self, agent_role, role_name, thinking=False, tools=[]):
+        super().__init__(agent_role, role_name, role_name, thinking=thinking, tools=tools)
