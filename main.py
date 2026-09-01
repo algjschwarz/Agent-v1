@@ -10,13 +10,14 @@ def main():
         thinking=True,
         tools=agent.creator_tools
     )
-    grader = agent.Agent(
-        f'You call the function grade and determine either pass or fail based on if the agent properly followed the instructions and was precise and all encompasing in its execution.',
+    grader = agent.Grader(
+        f'You call the tool grade and determine either pass or fail based on if the agent properly followed the instructions and if the program it created does as well',
         role_name="Grader",
         thinking=True,
         tools=None#agent.grader_tools
     )
-    creator.new_input("Make a strategy game across 2 files, make sure to test the full game", True)
+    creator.new_input("Make a file that says hi when ran", recall_enabled=True)
+    grader.grade(creator)
 
 
 if __name__ == "__main__":

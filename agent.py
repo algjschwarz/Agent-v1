@@ -25,14 +25,13 @@ def search_script_memory(message: dict, scripts_embeddings: list) -> list:
         if record in scripts_embeddings:
             scripts_embeddings.remove(record)
     return script_hits
-
-
+    
 class Agent():
     def __init__(self, agent_role, role_name, thinking=False, tools=[]):
         self.messages = [{'role': 'system', 'content': agent_role}]
-        self.tool_calls = []
         self.thinking = thinking
         self.tools = tools
+        self.tool_log = []
         self.role_name = role_name
 
     def new_input(self, text, recall_enabled) -> None:
@@ -61,12 +60,9 @@ class Agent():
             if new_message['tool_calls']:
                 msg['thinking'] = new_message['thinking']
                 msg['tool_calls'] = new_message['tool_calls']
-                self.tool_calls.append(new_message['tool_calls'])
             self.messages.append(msg)
-
             if not new_message['tool_calls']:
                 return new_message['content']
-
             self.run_tool_calls(new_message['tool_calls'])
             stop_after_thinking = True
 
@@ -111,10 +107,27 @@ class Agent():
                     result = fn(**call.function.arguments)
                 except Exception as e:
                     result = f"error: {type(e).__name__}: {e}"
+            self.tool_log.append({
+                "name": call.function.name,
+                "args": dict(call.function.arguments),
+                "result": result,
+            })
             display.print_tool_result(call.function.name, result)
             self.messages.append({'role': 'tool', 'content': result,
                                 'tool_name': call.function.name})
 
 class Grader(Agent):
     def __init__(self, agent_role, role_name, thinking=False, tools=[]):
-        super().__init__(agent_role, role_name, role_name, thinking=thinking, tools=tools)
+        super().__init__(agent_role, role_name, thinking, tools)
+    
+    def grade(self, agent):
+        user_first_message = agent.messages[1]['content']
+        tools_used = []
+        filter = ["write_to_file", "observe_program"]
+        for tool in agent.tool_log:
+            if tool["name"] not in filter:
+                continue
+            tools_used.append(tool)
+            print(tool)
+        
+        
