@@ -16,7 +16,7 @@ def main():
         thinking=True,
         tools=None#agent.grader_tools
     )
-    creator.new_input("Make a file that says hi when ran", recall_enabled=True)
+    creator.new_input("make a program where you input hi to it and it says hi back", recall_enabled=True)
     grader.grade(creator)
 
 

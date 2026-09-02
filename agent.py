@@ -36,7 +36,7 @@ class Agent():
 
     def new_input(self, text, recall_enabled) -> None:
         self.messages.append({'role': 'user', 'content': text})
-        stop_after_thinking = True
+        stop_after_thinking = recall_enabled
         scripts_embeddings = memory.script_embeddings.copy()
 
         while True:
@@ -64,7 +64,7 @@ class Agent():
             if not new_message['tool_calls']:
                 return new_message['content']
             self.run_tool_calls(new_message['tool_calls'])
-            stop_after_thinking = True
+            stop_after_thinking = recall_enabled
 
     def compact_messages(self):
         for msg in self.messages[:-2]:
@@ -119,15 +119,50 @@ class Agent():
 class Grader(Agent):
     def __init__(self, agent_role, role_name, thinking=False, tools=[]):
         super().__init__(agent_role, role_name, thinking, tools)
-    
-    def grade(self, agent):
-        user_first_message = agent.messages[1]['content']
+
+    def __filter_tools(self, filter, tools) -> list:
         tools_used = []
-        filter = ["write_to_file", "observe_program"]
-        for tool in agent.tool_log:
+        files = set()
+        for tool in tools[::-1]:
             if tool["name"] not in filter:
                 continue
+            if tool["name"] == filter[0] and tool["args"]["file_name"] in files:
+                continue
+            elif tool["name"] == filter[0]:
+                files.add(tool["args"]["file_name"])
             tools_used.append(tool)
-            print(tool)
+        tools_used = tools_used[::-1]
+        return tools_used
+    
+    def grade(self, agent):
+        '''All files and observations and inputs must occur linearly, This grades programs wether or not they followed the user instruction'''
+        user_first_message = agent.messages[1]['content']
+        filter = ["write_to_file", "observe_program", "send_input", "execute_file"]
+        tools_used = self.__filter_tools(filter, agent.tool_log)
+        tools_log = {}
+        last_tool = ""
+
+        for tool in tools_used:
+            if tool["name"] == filter[0] or tool["name"] == filter[3]:
+                if tool["args"]["file_name"] not in tools_log:
+                    tools_log[tool["args"]["file_name"]] = {"description": "", "observations": ""}
+            if tool["name"] == filter[3]:    
+                last_tool = tool["args"]["file_name"]
+            if tool["name"] == filter[0]:
+                tools_log[tool["args"]["file_name"]]["description"] = tool['args']['description']
+            if tool["name"] == filter[1]:
+                tools_log[last_tool]["observations"] += f""" Agent checked {last_tool} with interval {tool['args']['interval']} seconds,"
+                return was {tool["result"]}."""
+            if tool["name"] == filter[2]:
+                tools_log[last_tool]["observations"] += f" Agent inputed {tool['args']['text']} into {last_tool}."
+
+        prompt = f"The users request was {user_first_message}, "
+        for tool in tools_log.keys():
+            prompt += f"Agent Created function {tool} with description {tools_log[tool]['description']}, {tools_log[tool]['observations']}, "
+        self.new_input(prompt, recall_enabled=False)
         
-        
+def main():
+    pass
+
+if __name__ == "__main__":
+    main()
