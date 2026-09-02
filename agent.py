@@ -27,8 +27,8 @@ def search_script_memory(message: dict, scripts_embeddings: list) -> list:
     return script_hits
     
 class Agent():
-    def __init__(self, agent_role, role_name, thinking=False, tools=[]):
-        self.messages = [{'role': 'system', 'content': agent_role}]
+    def __init__(self, system_prompt, role_name, thinking=False, tools=[]):
+        self.messages = [{'role': 'system', 'content': system_prompt}]
         self.thinking = thinking
         self.tools = tools
         self.tool_log = []
@@ -162,7 +162,17 @@ class Grader(Agent):
         self.new_input(prompt, recall_enabled=False)
         
 def main():
-    pass
+    agent = Agent("Test", "Test",  False, tools=[])
+    ["write_to_file", "observe_program", "send_input", "execute_file"]
+    agent.messages.append({'role': 'user', 'content': "User Text"})                 
+    agent.tool_log.extend({"name": "write_to_file", "args": {"file_name": "Test", "description": "Test Description"}, "result": "Nothing"},
+                {"name": "execute_file", "args": {"file_name": "Test"}, "result": "Nothing"},
+                {"name": "send_input", "args": {"text": "Yes"}, "result": "Nothing"},
+                {"name": "observe_program", "args": {"interval": "5"}, "result": "Input Yes: Yes"},
+
+                {"name": "execute_file", "args": {"file_name": "Test_2"}, "result": "Nothing"},
+                {"name": "observe_program", "args": {"interval": "3"}, "result": "Input Yes: "},
+                {"name": "send_input", "args": {"text": "Yes"}, "result": "Nothing"})
 
 if __name__ == "__main__":
     main()
