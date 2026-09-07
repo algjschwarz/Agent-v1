@@ -49,12 +49,13 @@ class Agent():
                 if stop_after_thinking and len(scripts_embeddings) > 0:
                     script_hits = search_script_memory(new_message, scripts_embeddings)
                     display.print_recall(script_hits)
-                    self.inject_recall(script_hits[0][2], script_hits)
                     stop_after_thinking = False
-                    continue
+                    match = script_hits[0][0]
+                    if match >= 0.6:
+                        self.inject_recall(script_hits[0][2], script_hits)
+                        continue
                 elif stop_after_thinking and len(scripts_embeddings) <= 0:
                     stop_after_thinking = False
-                    continue
 
             msg = {'role': 'assistant', 'content': new_message['content'].strip()}
             if new_message['tool_calls']:
@@ -137,7 +138,7 @@ class Grader(Agent):
     def grade(self, agent):
         '''All files and observations and inputs must occur linearly, This grades programs wether or not they followed the user instruction'''
         user_first_message = agent.messages[1]['content']
-        filter = ["write_to_file", "observe_program", "send_input", "execute_file"]
+        filter = ["write_to_file", "observe_program", "send_input", "execute_file", "read_file"]
         tools_used = self.__filter_tools(filter, agent.tool_log)
         tools_log = {}
         last_tool = ""
@@ -149,7 +150,10 @@ class Grader(Agent):
             if tool["name"] == filter[3]:    
                 last_tool = tool["args"]["file_name"]
             if tool["name"] == filter[0]:
-                tools_log[tool["args"]["file_name"]]["description"] = tool['args']['description']
+                try:
+                    tools_log[tool["args"]["file_name"]]["description"] = tool['args']['description']
+                except:
+                    raise SyntaxWarning("Agent failed to provide description.")
             if tool["name"] == filter[1]:
                 tools_log[last_tool]["observations"] += f""" Agent checked {last_tool} with interval {tool['args']['interval']} seconds,"
                 return was {tool["result"]}."""
@@ -157,8 +161,11 @@ class Grader(Agent):
                 tools_log[last_tool]["observations"] += f" Agent inputed {tool['args']['text']} into {last_tool}."
 
         prompt = f"The users request was {user_first_message}, "
-        for tool in tools_log.keys():
-            prompt += f"Agent Created function {tool} with description {tools_log[tool]['description']}, {tools_log[tool]['observations']}, "
+        if len(self.tool_log) <= 0 and tool[0]["name"] == filter[4]:
+            prompt += f" Agent called read_file, verify the file {tool[0]['args']['file_name']} does what the user needed."
+        else:
+            for tool in tools_log.keys():
+                prompt += f"Agent Created function {tool} with description {tools_log[tool]['description']}, {tools_log[tool]['observations']}, "
         self.new_input(prompt, recall_enabled=False)
         
 def main():
