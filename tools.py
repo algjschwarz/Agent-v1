@@ -104,6 +104,21 @@ tools = [
                 'required': ['text']
             }
         }
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'grade',
+            'description': 'mark a program as either passing or failing.',
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'file_name': {'type': 'string'},
+                    'grade': {'type': 'boolean'}
+                },
+                'required': ['file_name', 'grade']
+            }
+        }
     }
 ]
 
@@ -155,6 +170,9 @@ def write_to_file(file_name, description, text):
 
 def execute_file(file_name):
     global proc
+    if proc is not None and proc.poll() is None:
+        proc.kill()
+    q.queue.clear()
     env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
     proc = subprocess.Popen(
         ["python", "-u", f"scripts/{file_name}"],
@@ -186,9 +204,13 @@ def search(query):
      results = DDGS().text(query, max_results=5)
      return "\n\n".join(f"{r['title']}\n{r['body']}" for r in results)
 
+def grade(file_name: str, grade: bool) -> str:
+    memory.set_grade(file_name, grade)
+    return "grade saved"
+
 TOOLS = {'search': search, 'execute_file': execute_file,
          'observe_program': observe_program, 'read_file': read_file,
          'write_to_file': write_to_file, 'list_files': list_files,
-         'send_input': send_input}
+         'send_input': send_input, 'grade': grade}
 
 

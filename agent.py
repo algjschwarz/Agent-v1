@@ -4,7 +4,7 @@ import memory
 import display
 
 creator_tools = tools[:7]
-#grader_tools = tools[8]
+grader_tools = tools[4:8]
 MAX_STORED_CONTEXT = 400
 
 def search_script_memory(message: dict, scripts_embeddings: list) -> list:
@@ -117,8 +117,8 @@ class Agent():
                                 'tool_name': call.function.name})
 
 class Grader(Agent):
-    def __init__(self, agent_role, role_name, thinking=False, tools=[]):
-        super().__init__(agent_role, role_name, thinking, tools)
+    def __init__(self, system_prompt, role_name, thinking=False, tools=[]):
+        super().__init__(system_prompt, role_name, thinking, tools)
 
     def __filter_tools(self, filter, tools) -> list:
         tools_used = []
@@ -163,16 +163,18 @@ class Grader(Agent):
         
 def main():
     agent = Agent("Test", "Test",  False, tools=[])
-    ["write_to_file", "observe_program", "send_input", "execute_file"]
     agent.messages.append({'role': 'user', 'content': "User Text"})                 
-    agent.tool_log.extend({"name": "write_to_file", "args": {"file_name": "Test", "description": "Test Description"}, "result": "Nothing"},
+    agent.tool_log.extend([
+                {"name": "write_to_file", "args": {"file_name": "Test", "description": "Test Description"}, "result": "Nothing"},
                 {"name": "execute_file", "args": {"file_name": "Test"}, "result": "Nothing"},
                 {"name": "send_input", "args": {"text": "Yes"}, "result": "Nothing"},
                 {"name": "observe_program", "args": {"interval": "5"}, "result": "Input Yes: Yes"},
 
                 {"name": "execute_file", "args": {"file_name": "Test_2"}, "result": "Nothing"},
                 {"name": "observe_program", "args": {"interval": "3"}, "result": "Input Yes: "},
-                {"name": "send_input", "args": {"text": "Yes"}, "result": "Nothing"})
+                {"name": "send_input", "args": {"text": "Yes"}, "result": "Nothing"}])
+    grader = Grader("List what was created and done", role_name="grader", thinking=True, tools=[])
+    grader.grade(agent)
 
 if __name__ == "__main__":
-    main()
+    print(creator_tools)
