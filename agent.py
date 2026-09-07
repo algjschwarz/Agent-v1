@@ -48,14 +48,18 @@ class Agent():
             if recall_enabled:
                 if stop_after_thinking and len(scripts_embeddings) > 0:
                     script_hits = search_script_memory(new_message, scripts_embeddings)
-                    display.print_recall(script_hits)
                     stop_after_thinking = False
                     match = script_hits[0][0]
                     if match >= 0.6:
+                        display.print_recall(script_hits)
                         self.inject_recall(script_hits[0][2], script_hits)
-                        continue
+                    else:
+                        print("Recall found nothing useful enough.")
+                    continue
                 elif stop_after_thinking and len(scripts_embeddings) <= 0:
                     stop_after_thinking = False
+                    recall_enabled = False
+                    continue
 
             msg = {'role': 'assistant', 'content': new_message['content'].strip()}
             if new_message['tool_calls']:
@@ -161,8 +165,8 @@ class Grader(Agent):
                 tools_log[last_tool]["observations"] += f" Agent inputed {tool['args']['text']} into {last_tool}."
 
         prompt = f"The users request was {user_first_message}, "
-        if len(self.tool_log) <= 0 and tool[0]["name"] == filter[4]:
-            prompt += f" Agent called read_file, verify the file {tool[0]['args']['file_name']} does what the user needed."
+        if len(self.tool_log) <= 0 and tools_used[0]["name"] == filter[4]:
+            prompt += f" Agent called read_file, verify the file {tools_used[0]['args']['file_name']} does what the user needed."
         else:
             for tool in tools_log.keys():
                 prompt += f"Agent Created function {tool} with description {tools_log[tool]['description']}, {tools_log[tool]['observations']}, "

@@ -16,9 +16,9 @@ def main():
         thinking=True,
         tools=agent.grader_tools
     )
-    creator.new_input("make a calculator app", recall_enabled=True)
+    creator.new_input("make a simple game", recall_enabled=True)
     grader.grade(creator)
-
+    grader.new_input(input(), recall_enabled=False)
 
 if __name__ == "__main__":
     main()
