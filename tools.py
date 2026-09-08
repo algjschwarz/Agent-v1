@@ -157,7 +157,7 @@ def delegate(agent_role, instructions=None, agent_role_to_grade=None) -> str:
         if type(instructions) != str:
             return f"Error: no {instructions} for creator to implement."
         agent.new_input(instructions, recall_enabled=True)
-        return f"{agent_role} sent with these instructions: {instructions}"
+        return f"{agent_role} executed these instructions: {instructions}"
 
 proc = None
 q = queue.Queue()
