@@ -109,7 +109,7 @@ tools = [
         'type': 'function',
         'function': {
             'name': 'grade',
-            'description': 'mark a program as either passing or failing.',
+            'description': 'Mark a program as either passing or failing.',
             'parameters': {
                 'type': 'object',
                 'properties': {
@@ -119,8 +119,45 @@ tools = [
                 'required': ['file_name', 'grade']
             }
         }
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'delegate',
+            'description': 'Send an agent to complete a task',
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'agent_role': {'type': 'string'},
+                    'instructions': {'type': 'string'},
+                    'agent_role_to_grade': {'type': "string"}
+                },
+                'required': ['agent_role']
+            }
+        }
     }
 ]
+
+agents = {}
+def delegate(agent_role, instructions=None, agent_role_to_grade=None) -> str:
+    if agent_role not in agents:
+        return f"Error: no agent with role '{agent_role}'. Valid roles: {list(agents.keys())}"
+    
+    agent = agents[agent_role]
+    if agent_role == "Grader":
+        try:
+            graded_agent = agents[agent_role_to_grade]
+            agent.grade(graded_agent)
+            return f"{agent_role} sent to grade {agent_role_to_grade}. "
+        except KeyError:
+            return f"Error: no agent with role '{agent_role_to_grade}'. Valid roles: {list(agents.keys())}"
+        except Exception as e:
+            return f"Error: {type(e).__name__}: {e}"
+    elif agent_role == "Creator":
+        if type(instructions) != str:
+            return f"Error: no {instructions} for creator to implement."
+        agent.new_input(instructions, recall_enabled=True)
+        return f"{agent_role} sent with these instructions: {instructions}"
 
 proc = None
 q = queue.Queue()
@@ -211,6 +248,8 @@ def grade(file_name: str, grade: bool) -> str:
 TOOLS = {'search': search, 'execute_file': execute_file,
          'observe_program': observe_program, 'read_file': read_file,
          'write_to_file': write_to_file, 'list_files': list_files,
-         'send_input': send_input, 'grade': grade}
+         'send_input': send_input, 'grade': grade,
+         'delegate': delegate}
 
-
+if __name__ == "__main__":
+    print(tools[8])

@@ -5,6 +5,7 @@ import display
 
 creator_tools = tools[:7]
 grader_tools = tools[4:8]
+orchastrator_tools = tools[8:9]
 MAX_STORED_CONTEXT = 400
 
 def search_script_memory(message: dict, scripts_embeddings: list) -> list:
@@ -189,3 +190,4 @@ def main():
 
 if __name__ == "__main__":
     print(creator_tools)
+    print(orchastrator_tools)
