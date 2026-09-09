@@ -143,34 +143,24 @@ class Grader(Agent):
     def grade(self, agent):
         '''All files and observations and inputs must occur linearly, This grades programs wether or not they followed the user instruction'''
         user_first_message = agent.messages[1]['content']
-        filter = ["write_to_file", "observe_program", "send_input", "execute_file", "read_file"]
+        filter = ["write_to_file"]
         tools_used = self.__filter_tools(filter, agent.tool_log)
         tools_log = {}
-        last_tool = ""
 
         for tool in tools_used:
-            if tool["name"] == filter[0] or tool["name"] == filter[3]:
+            if tool["name"] == filter[0]:
                 if tool["args"]["file_name"] not in tools_log:
-                    tools_log[tool["args"]["file_name"]] = {"description": "", "observations": ""}
-            if tool["name"] == filter[3]:    
-                last_tool = tool["args"]["file_name"]
+                    tools_log[tool["args"]["file_name"]] = {"description": ""}
             if tool["name"] == filter[0]:
                 try:
                     tools_log[tool["args"]["file_name"]]["description"] = tool['args']['description']
                 except:
                     raise SyntaxWarning("Agent failed to provide description.")
-            if tool["name"] == filter[1]:
-                tools_log[last_tool]["observations"] += f""" Agent checked {last_tool} with interval {tool['args']['interval']} seconds,"
-                return was {tool["result"]}."""
-            if tool["name"] == filter[2]:
-                tools_log[last_tool]["observations"] += f" Agent inputed {tool['args']['text']} into {last_tool}."
 
-        prompt = f"The users request was {user_first_message}, "
-        if len(self.tool_log) <= 0 and tools_used[0]["name"] == filter[4]:
-            prompt += f" Agent called read_file, verify the file {tools_used[0]['args']['file_name']} does what the user needed."
-        else:
-            for tool in tools_log.keys():
-                prompt += f"Agent Created function {tool} with description {tools_log[tool]['description']}, {tools_log[tool]['observations']}, "
+        prompt = f"The users request was '{user_first_message}': "
+
+        for tool in tools_log.keys():
+            prompt += f"Agent Created function '{tool}', with description '{tools_log[tool]['description']}', "
         self.new_input(prompt, recall_enabled=False)
         
 def main():
@@ -189,5 +179,4 @@ def main():
     grader.grade(agent)
 
 if __name__ == "__main__":
-    print(creator_tools)
-    print(orchastrator_tools)
+    main()
