@@ -23,10 +23,15 @@ def main():
     )
     tools.agents = {creator.role_name : creator, grader.role_name : grader}
 
+    creator_explanation = """It remembers scripts by having recall_scripts returns a script similar to what it is about to write based on what the instructions are,
+    it checks to see if it is sufficient to complete a task, 
+    if it is not it writed python code and tests it by executing it"""
+    grader_explanation = "It creates a plan to test the scripts the creator created, if those tests pass it grades them true for passing else false for not."
+
     orchastrator = agent.Agent(
         f"""You are an orchastrator who creates according to the user's input, high level plans and call tool 
         'delegate' to delgate lower levels tasks to these agents: {list(tools.agents.keys())}. 
-        The agent's system prompts are '{creator_system_prompt}' and {grader_system_prompt}.""",
+        The agent {creator.role_name} does this: '{creator_explanation}' The agent {grader.role_name} does this: {grader_explanation}""",
         role_name="Orchastrator",
         thinking=True,
         tools=agent.orchastrator_tools
