@@ -166,7 +166,7 @@ class Grader(Agent):
                 except:
                     raise SyntaxWarning("Agent failed to provide description.")
 
-        prompt = f"The users request was '{user_first_message}': "
+        prompt = f"The users request was: '{user_first_message}': "
 
         for tool in tools_log.keys():
             prompt += f"Agent Created function '{tool}', with description '{tools_log[tool]['description']}', "

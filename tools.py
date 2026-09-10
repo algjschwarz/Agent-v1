@@ -130,7 +130,7 @@ tools = [
                 'properties': {
                     'agent_role': {'type': 'string'},
                     'instructions': {'type': 'string'},
-                    'agent_role_to_grade': {'type': "string"}
+                    'agent_role_to_grade_for_grader': {'type': "string"}
                 },
                 'required': ['agent_role']
             }
@@ -139,25 +139,37 @@ tools = [
 ]
 
 agents = {}
-def delegate(agent_role, instructions=None, agent_role_to_grade=None) -> str:
+def delegate(agent_role, instructions=None, agent_role_to_grade_for_grader=None) -> str:
     if agent_role not in agents:
-        return f"Error: no agent with role '{agent_role}'. Valid roles: {list(agents.keys())}"
+        return f"Error: no agent with role '{agent_role}'. Valid roles: {list(agents.keys())} call a valid role and try again. "
     
     agent = agents[agent_role]
     if agent_role == "Grader":
+        if agent_role == agent_role_to_grade_for_grader:
+            return f"Error: {agent_role} cannot grader {agent_role_to_grade_for_grader} it is the same agent. Try having it grade an agent that created scripts."
         try:
-            graded_agent = agents[agent_role_to_grade]
+            graded_agent = agents[agent_role_to_grade_for_grader]
             agent.grade(graded_agent)
-            return f"{agent_role} sent to grade {agent_role_to_grade}. "
+            tool_calls = agent.get_tool_calls("grade")
+            prompt = f"{agent_role} sent to grade {agent_role_to_grade_for_grader}. "
+            for tool in tool_calls:
+                prompt += f"Agent called '{tool['name']}' on {tool['args']['file_name']} with grade {tool['args']['grade']}. "
+            return prompt
         except KeyError:
-            return f"Error: no agent with role '{agent_role_to_grade}'. Valid roles: {list(agents.keys())}"
+            return f"Error: no agent with role '{agent_role_to_grade_for_grader}'. Valid roles: {list(agents.keys())}"
         except Exception as e:
             return f"Error: {type(e).__name__}: {e}"
     elif agent_role == "Creator":
         if type(instructions) != str:
             return f"Error: no {instructions} for creator to implement."
         agent.new_input(instructions, recall_enabled=True)
-        return f"{agent_role} executed these instructions: {instructions}"
+        tool_calls = agent.get_tool_calls("write_to_file")
+        if len(tool_calls) == 0:
+            return f"{agent_role} created no scripts"
+        prompt = f"{agent_role} created scripts: "
+        for tool in tool_calls:
+            prompt += f"'{tool['args']['file_name']}' with description {tool['args']['description']}, "
+        return prompt
 
 proc = None
 q = queue.Queue()

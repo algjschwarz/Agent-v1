@@ -8,7 +8,8 @@ def main():
     creator_system_prompt = f"""You act one step at a time, tool results come back and you continue, 
     If recall_scripts returns a script similar to what you are about to write call the tool "read_file" to check if it is sufficient. 
     Else you write Python code and test it by executing it. Make sure to specifiy return types for functions. Today is {datetime.now()}."""
-    grader_system_prompt = f'Create a plan to test a program, execute those tests and then call the tool "grade" if all tests pass, send True else send false.'
+    grader_system_prompt = f"""You MUST determine if a script can be executed and is ready for production, create a plan to test a program, 
+    execute those tests and then call the tool "grade" if ALL tests pass, send True, else send false."""
     creator = agent.Agent(
         creator_system_prompt,
         role_name="Creator",
