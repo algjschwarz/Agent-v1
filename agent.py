@@ -35,6 +35,30 @@ class Agent():
         self.tool_log = []
         self.role_name = role_name
 
+    def get_tool_calls(self, tool_name):
+        if tool_name == "write_to_file":
+            tools_used = []
+            files = set()
+            for tool in self.tool_log[::-1]:
+                if tool["name"] == tool_name and tool["args"]["file_name"] in files:
+                    continue
+                elif tool["name"] == tool_name:
+                    files.add(tool["args"]["file_name"])
+                tools_used.append(tool)
+            return tools_used[::-1]
+        elif tool_name == "grade":
+            tools_used = []
+            filter = set()
+            for tool in self.tool_log[::-1]:
+            # reversed so last grades state is prioritized 
+                if tool["name"] == tool_name:
+                    if tool["args"]["file_name"] in filter:
+                        continue
+                    tools_used.append(tool)
+                    filter.add(tool["args"]["file_name"])
+            return tools_used[::-1]
+
+
     def new_input(self, text, recall_enabled) -> None:
         self.messages.append({'role': 'user', 'content': text})
         stop_after_thinking = recall_enabled
@@ -125,33 +149,18 @@ class Agent():
 class Grader(Agent):
     def __init__(self, system_prompt, role_name, thinking=False, tools=[]):
         super().__init__(system_prompt, role_name, thinking, tools)
-
-    def __filter_tools(self, filter, tools) -> list:
-        tools_used = []
-        files = set()
-        for tool in tools[::-1]:
-            if tool["name"] not in filter:
-                continue
-            if tool["name"] == filter[0] and tool["args"]["file_name"] in files:
-                continue
-            elif tool["name"] == filter[0]:
-                files.add(tool["args"]["file_name"])
-            tools_used.append(tool)
-        tools_used = tools_used[::-1]
-        return tools_used
     
     def grade(self, agent):
         '''All files and observations and inputs must occur linearly, This grades programs wether or not they followed the user instruction'''
         user_first_message = agent.messages[1]['content']
-        filter = ["write_to_file"]
-        tools_used = self.__filter_tools(filter, agent.tool_log)
+        tools_used = agent.get_tool_calls("write_to_file")
         tools_log = {}
 
         for tool in tools_used:
-            if tool["name"] == filter[0]:
+            if tool["name"] == "write_to_file":
                 if tool["args"]["file_name"] not in tools_log:
                     tools_log[tool["args"]["file_name"]] = {"description": ""}
-            if tool["name"] == filter[0]:
+            if tool["name"] == "write_to_file":
                 try:
                     tools_log[tool["args"]["file_name"]]["description"] = tool['args']['description']
                 except:
@@ -161,6 +170,7 @@ class Grader(Agent):
 
         for tool in tools_log.keys():
             prompt += f"Agent Created function '{tool}', with description '{tools_log[tool]['description']}', "
+        print(prompt)
         self.new_input(prompt, recall_enabled=False)
         
 def main():
@@ -176,7 +186,15 @@ def main():
                 {"name": "observe_program", "args": {"interval": "3"}, "result": "Input Yes: "},
                 {"name": "send_input", "args": {"text": "Yes"}, "result": "Nothing"}])
     grader = Grader("List what was created and done", role_name="grader", thinking=True, tools=[])
-    grader.grade(agent)
+    grader.tool_log.extend([
+        {"name": "grade", "args": {"file_name": "Test", "grade": "True"}, "result": "Nothing"},
+        {"name": "grade", "args": {"file_name": "Test", "grade": "False"}, "result": "Nothing"},
+        {"name": "grade", "args": {"file_name": "Test2", "grade": "False"}, "result": "Nothing"},
+        {"name": "grade", "args": {"file_name": "Test2", "grade": "True"}, "result": "Nothing"},
+        {"name": "grade", "args": {"file_name": "Test3", "grade": "True"}, "result": "Nothing"},
+    ])
+    print(grader.get_tool_calls("grade"))
+    #grader.grade(agent)
 
 if __name__ == "__main__":
     main()
